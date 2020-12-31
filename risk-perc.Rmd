@@ -1,0 +1,111 @@
+---
+title: "Risk Perception Neural Network"
+author: "Sree Kanagala"
+output:
+  html_document:
+    df_print: paged
+---
+
+Dataset: [Socioeconomic Dataset](https://data.mendeley.com/datasets/wh9xk5mp9m/3) <br> <br> <br>
+
+### Data Profiling 
+Load in dataset <br>
+Last 10 columns were created because a multi-class neural net cannot distinguish between factor inputs within one column 
+```{r}
+library(readxl)
+Data_in_brief <- read_excel("C:/Users/ksree/Desktop/senior year/statistics/wh9xk5mp9m-3/Data-in-brief.xlsx", 
+                            sheet = "Dataset", range = "b1:y392")
+View(Data_in_brief)
+
+str(Data_in_brief)
+```
+<br><br><br>
+Put data into a variable minus the Riskperception column because the results were encoded seprately in the last ten columns
+```{r}
+data = subset(Data_in_brief, select = -c(Riskperception))
+```
+<br><br><br> 
+Profile data to see any immediate anomalies and check variables 
+```{r}
+View(data)
+```
+<br><br><br>
+Load required packages and set seed to reproduce results 
+```{r}
+library(neuralnet)
+library(nnet)
+library(psych)
+require(ggplot2)
+set.seed(345)
+```
+### Descriptive Statistics
+Get some descriptive statistics for the overall dataset <br>
+Identify any visual correlations among variables, visual outliers, mean and skew
+```{r}
+plot(data)
+summary(data)
+describe(data)
+```
+### Split Training and Test Data 
+Split data into training and test sets to validate model in the end 
+```{r}
+set.seed(4321)
+dt <- sort(sample(nrow(data), nrow(data)*.75))
+train <- data[dt,]
+test <- data[-dt,]
+
+describe(train)
+describe(test)
+```
+
+### Scale and Standardize Data 
+
+```{r}
+scl <- function(x){ (x - min(x))/(max(x) - min(x)) }
+train[, 1:23] <- data.frame(lapply(train[, 1:23], scl))
+test[, 1:23] <- data.frame(lapply(test[, 1:23], scl))
+
+
+is.nan.data.frame <- function(x)
+  do.call(cbind, lapply(x, is.nan))
+
+train[is.nan(train)] <- 0
+test[is.nan(test)] <- 0
+```
+
+### Neural Network 
+To put in a formula each factor that is encoded in its own column must be put into its own variable 
+```{r}
+n <- names(train)
+f <- as.formula(paste("r1 + r2 + r3 + r4 + r5 + r6  +r7 + r8 + r9 + r10~", paste(n[!n %in% c("r1","r2","r3","r4","r5","r6","r7","r8","r9","r10")], collapse = " + ")))
+f
+```
+<br><br><br>
+After trail and error I found parameters for the hidden vertices and neurons that minimize error
+```{r}
+nntrain <- neuralnet(f,
+                data = train,
+                hidden = c(290,270,260,150),
+                threshold = 0.001,
+                rep = 1,
+                act.fct = "logistic",
+                linear.output = FALSE,
+                lifesign = "minimal")
+
+plot(nntrain)
+
+```
+
+<br><br><br>
+Test the model on the test dataset 
+```{r}
+nntest <- neuralnet(f,
+                data = train,
+                hidden = c(290,270,260,150),
+                threshold = 0.001,
+                rep = 1,
+                act.fct = "logistic",
+                linear.output = FALSE,
+                lifesign = "minimal")
+
+```
